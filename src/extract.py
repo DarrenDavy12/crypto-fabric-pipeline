@@ -25,12 +25,12 @@ params = {
     "price_change_percentage": "1h,24h,7d"
 }
 
-print("📡 Fetching Top 100 cryptocurrencies from CoinGecko...")
+print("Data Fetched from API_URL")
 
 response = requests.get(API_URL, params=params)
 
 if response.status_code != 200:
-    raise Exception(f"❌ API request failed with status code {response.status_code}")
+    raise Exception(f"❌ API request failed with status code {response.status_code}") # raise error if api request fails 
 
 data = response.json()
 
@@ -46,5 +46,5 @@ file_path = f"data/raw/crypto_prices_{timestamp}.csv"
 # Save CSV
 df.to_csv(file_path, index=False)
 
-print(f"✅ Extraction complete! Saved {len(df)} rows to:")
+print("Extraction complete!")
 print(f"   {file_path}")
