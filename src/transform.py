@@ -1,96 +1,128 @@
-# Transform data pulled from coingecko
+"""
+Transform step for CoinGecko crypto data
 
-import pandas as pd
+- Reads the most recent raw CSV from data/raw
+- Cleans and standardises columns
+- Adds a few simple derived metrics
+- Writes a timestamped clean file to data/clean
+"""
+
 import os
 from datetime import datetime
+import pandas as pd
 
-print("🚀 Starting crypto transform step...")
 
-# ============================================================
-# CREATE CLEAN FOLDER
-# ============================================================
-os.makedirs("data/clean", exist_ok=True)
-print("📁 Ensured data/clean/ exists.")
+# ------------------------------------------------------------
+# SET PATHS
+# ------------------------------------------------------------
+RAW_FOLDER = "data/raw"
+CLEAN_FOLDER = "data/clean"
 
-# ============================================================
-# FIND LATEST RAW FILE
-# ============================================================
-raw_folder = "data/raw"
-raw_files = sorted(
-    [f for f in os.listdir(raw_folder) if f.endswith(".csv")],
-    reverse=True
-)
+os.makedirs(CLEAN_FOLDER, exist_ok=True)
 
-if not raw_files:
-    raise Exception("❌ No raw CSV found in data/raw. Run extract.py first.")
 
+# ------------------------------------------------------------
+# LOAD LATEST RAW FILE
+# ------------------------------------------------------------
+raw_files = [f for f in os.listdir(RAW_FOLDER) if f.endswith(".csv")]
+
+if len(raw_files) == 0:
+    raise FileNotFoundError(
+        "No raw CSV files found in data/raw. Run extract step first."
+    )
+
+raw_files.sort(reverse=True)
 latest_file = raw_files[0]
-raw_path = os.path.join(raw_folder, latest_file)
-
-print(f"🔄 Loading latest raw file: {latest_file}")
+raw_path = os.path.join(RAW_FOLDER, latest_file)
 
 df = pd.read_csv(raw_path)
-print("📥 Raw file loaded successfully.")
-print(f"📊 Columns found: {df.columns.tolist()}")
 
-# ============================================================
-# CLEANING
-# ============================================================
-print("🧹 Cleaning data...")
 
-# Drop columns if they exist
-columns_to_drop = ["image", "fully_diluted_valuation"]
-df = df.drop(columns=[c for c in columns_to_drop if c in df.columns], errors="ignore")
+# ------------------------------------------------------------
+# BASIC CLEANING
+# ------------------------------------------------------------
 
-# Safe renaming
-rename_map = {
-    "id": "coin_id",
-    "symbol": "symbol",
-    "name": "name",
-    "current_price": "price_usd",
-    "market_cap": "market_cap",
-    "total_volume": "volume_24h",
-    "price_change_percentage_24h": "pct_change_24h",
-    "price_change_percentage_7d_in_currency": "pct_change_7d",
-}
+# Drop columns we do not need for analytics
+columns_to_drop = [
+    "image",
+    "fully_diluted_valuation"
+]
 
-df = df.rename(columns=rename_map)
+# "Drop columns if function: columns_to_drop is executed"
+df = df.drop(
+    columns=[c for c in columns_to_drop if c in df.columns] # used loop
+)
 
-# Add missing columns if API did not return them
-for col in ["pct_change_24h", "pct_change_7d", "volume_24h"]:
-    if col not in df:
+# Main Standardize 
+
+# Rename columns to consistent snake_case names 
+df = df.rename(
+    columns={
+        "id": "coin_id",
+        "current_price": "price_usd",
+        "market_cap": "market_cap",
+        "total_volume": "volume_24h",
+        "price_change_percentage_24h": "pct_change_24h",
+        "price_change_percentage_7d_in_currency": "pct_change_7d"
+    }
+)
+
+
+# Ensure expected numeric columns exist
+expected_columns = [
+    "pct_change_24h",
+    "pct_change_7d",
+    "volume_24h"
+]
+
+for col in expected_columns:       # for loop
+    if col not in df.columns:
         df[col] = 0
 
+
+# Replace missing values with 0 for numerical analysis
 df = df.fillna(0)
-print("🧽 Missing values filled.")
 
-# ============================================================
+
+
 # FEATURE ENGINEERING
-# ============================================================
-print("📐 Feature engineering...")
 
-# Daily return
-df["daily_return"] = df["pct_change_24h"] / 100
+# Convert percentage change into decimal daily return
+df["daily_return"] = df["pct_change_24h"] / 100             
 
-# Volatility score
-df["volatility_score"] = (df["pct_change_24h"].abs() + df["pct_change_7d"].abs()) / 2
 
-# Market dominance
-total_market_cap = df["market_cap"].sum() if "market_cap" in df else 1
-df["market_dominance_pct"] = (df["market_cap"] / total_market_cap) * 100
+# Simple volatility proxy based on recent price movements
+df["volatility_score"] = (
+    df["pct_change_24h"].abs() + df["pct_change_7d"].abs()
+) / 2
 
-df["transform_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-print("✨ Feature engineering complete.")
+# Market dominance (share of total market cap)
+total_market_cap = df["market_cap"].sum()         # aggregate with sum
 
-# ============================================================
-# SAVE CLEANED OUTPUT
-# ============================================================
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-clean_path = f"data/clean/crypto_clean_{timestamp}.csv"
+if total_market_cap > 0:                          # if/else statement
+    df["market_dominance_pct"] = (
+        df["market_cap"] / total_market_cap
+    ) * 100
+else:
+    df["market_dominance_pct"] = 0
+
+
+# Metadata for auditing
+df["transform_timestamp"] = datetime.utcnow().strftime(    # timestamp when the transform step ran
+    "%Y-%m-%d %H:%M:%S"
+)
+
+
+
+# SAVE CLEAN DATA
+
+
+timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+clean_file = f"crypto_clean_{timestamp}.csv"
+clean_path = os.path.join(CLEAN_FOLDER, clean_file)
 
 df.to_csv(clean_path, index=False)
 
-print(f"✅ Transform complete! Saved cleaned file:")
-print(f"   {clean_path}")
-print(f"📈 Total rows: {len(df)}")
+print(f"Transform complete. Clean file written to: {clean_path}")
+print(f"Row count: {len(df)}")
