@@ -21,9 +21,9 @@ CLEAN_FOLDER = "data/clean"
 os.makedirs(CLEAN_FOLDER, exist_ok=True)
 
 
-# ------------------------------------------------------------
+
 # LOAD LATEST RAW FILE
-# ------------------------------------------------------------
+
 raw_files = [f for f in os.listdir(RAW_FOLDER) if f.endswith(".csv")]
 
 if len(raw_files) == 0:
