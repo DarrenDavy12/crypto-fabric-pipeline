@@ -12,9 +12,9 @@ from datetime import datetime
 import pandas as pd
 
 
-# ------------------------------------------------------------
+
 # SET PATHS
-# ------------------------------------------------------------
+
 RAW_FOLDER = "data/raw"
 CLEAN_FOLDER = "data/clean"
 
@@ -38,9 +38,9 @@ raw_path = os.path.join(RAW_FOLDER, latest_file)
 df = pd.read_csv(raw_path)
 
 
-# ------------------------------------------------------------
+
 # BASIC CLEANING
-# ------------------------------------------------------------
+
 
 # Drop columns we do not need for analytics
 columns_to_drop = [
