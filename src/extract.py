@@ -7,9 +7,7 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# ============================================================
 # STEP 1: EXTRACT - Fetch Top 100 Crypto Prices (CoinGecko API)
-# ============================================================
 
 # Create raw data folder if missing
 os.makedirs("data/raw", exist_ok=True)
